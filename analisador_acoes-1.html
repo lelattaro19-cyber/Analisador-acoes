@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisador de Ações — IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c14;
+    --surface: #0e1420;
+    --surface2: #141c2e;
+    --surface3: #1a2338;
+    --gold: #f0b429;
+    --gold2: #ffd166;
+    --accent: #3b82f6;
+    --green: #10b981;
+    --red: #ef4444;
+    --text: #e8edf5;
+    --text2: #8b96a8;
+    --text3: #4a5568;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 28px 20px 0;
+    text-align: center;
+    position: relative;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 400px; height: 200px;
+    background: radial-gradient(ellipse, rgba(240,180,41,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(240,180,41,0.1);
+    border: 1px solid rgba(240,180,41,0.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+  .header h1 {
+    font-size: clamp(24px, 6vw, 40px);
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #e8edf5 0%, #8b96a8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header p {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 28px;
+  }
+
+  /* STEP INDICATOR */
+  .steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 28px;
+    padding: 0 20px;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step.active { color: var(--gold); }
+  .step.done { color: var(--green); }
+  .step-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .step.done .step-num { background: var(--green); border-color: var(--green); color: white; }
+  .step.active .step-num { background: rgba(240,180,41,0.15); border-color: var(--gold); }
+  .step-line { width: 24px; height: 1px; background: var(--border2); margin: 0 4px; flex-shrink: 0; }
+
+  /* SEÇÃO */
+  .section {
+    padding: 0 20px;
+    max-width: 680px;
+    margin: 0 auto 24px;
+  }
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* CATEGORIAS */
+  .categories {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .cat-btn {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cat-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .cat-btn.active { background: rgba(240,180,41,0.1); border-color: var(--gold); color: var(--gold); }
+
+  /* GRID DE ATIVOS */
+  .tickers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .ticker-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .ticker-card:hover { border-color: var(--border2); background: var(--surface2); }
+  .ticker-card.selected {
+    border-color: var(--gold);
+    background: rgba(240,180,41,0.06);
+  }
+  .ticker-card.selected-2 {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.06);
+  }
+  .ticker-card.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .ticker-sym {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .ticker-card.selected .ticker-sym { color: var(--gold); }
+  .ticker-card.selected-2 .ticker-sym { color: var(--accent); }
+  .ticker-name {
+    font-size: 10px;
+    color: var(--text2);
+    line-height: 1.3;
+  }
+  .ticker-sector {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: var(--text3);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .tick-badge {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .ticker-card.selected .tick-badge { background: var(--gold); color: var(--bg); }
+  .ticker-card.selected-2 .tick-badge { background: var(--accent); color: white; }
+
+  /* SELECIONADOS */
+  .selected-bar {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .sel-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text2);
+    flex-shrink: 0;
+  }
+  .sel-chips {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+    flex-wrap: wrap;
+  }
+  .sel-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .sel-chip.slot1 { background: rgba(240,180,41,0.15); color: var(--gold); border: 1px solid rgba(240,180,41,0.3); }
+  .sel-chip.slot2 { background: rgba(59,130,246,0.15); color: var(--accent); border: 1px solid rgba(59,130,246,0.3); }
+  .sel-chip.empty { background: var(--surface2); color: var(--text3); border: 1px dashed var(--border2); font-weight: 400; }
+  .sel-chip .remove {
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 12px;
+    line-height: 1;
+  }
+  .sel-chip .remove:hover { opacity: 1; }
+  .sel-hint {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    flex-shrink: 0;
+  }
+
+  /* BUSCA */
+  .search-wrap {
+    position: relative;
+    margin-bottom: 12px;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px 10px 36px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--gold); }
+  .search-input::placeholder { color: var(--text3); }
+  .search-icon {
+    position: absolute;
+    left: 12px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--text3);
+    pointer-events: none;
+  }
+
+  /* BOTÃO ANALISAR */
+  .analyze-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--gold) 0%, #e09b1a 100%);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    padding: 15px 20px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .analyze-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.1);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .analyze-btn:hover::before { opacity: 1; }
+  .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .analyze-btn:disabled::before { opacity: 0; }
+  .btn-spin { animation: spin 1s linear infinite; display: inline-block; }
+
+  /* LOADING */
+  .loading-screen {
+    padding: 40px 20px;
+    text-align: center;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .loading-orb {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    border: 2px solid rgba(240,180,41,0.2);
+    border-top-color: var(--gold);
+    animation: spin 1.2s linear infinite;
+    margin: 0 auto 20px;
+  }
+  .loading-screen h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .loading-screen p { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
+  .loading-steps { display: flex; flex-direction: column; gap: 6px; }
+  .loading-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    background: var(--surface);
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text2);
+    text-align: left;
+  }
+  .loading-step.active { color: var(--gold); background: rgba(240,180,41,0.07); border: 1px solid rgba(240,180,41,0.15); }
+  .loading-step.done { color: var(--green); }
+
+  /* RESULTADO */
+  .result-wrap { padding: 0 20px; max-width: 680px; margin: 0 auto; }
+
+  .result-header {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .result-tickers {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .result-tickers .vs { color: var(--text3); font-size: 12px; }
+  .t1 { color: var(--gold); }
+  .t2 { color: var(--accent); }
+  .result-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  .card-head {
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-body { padding: 14px; }
+
+  .macro-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .selic-box {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .selic-box label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text3); display: block; margin-bottom: 2px; letter-spacing: 1px; }
+  .selic-box span { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; color: var(--gold); }
+  .macro-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+  .exec-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .stock-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stock-card {
+    background: var(--surface2);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .stock-card-top {
+    padding: 10px 12px;
+    color: white;
+  }
+  .stock-card-top.t1c { background: linear-gradient(135deg, #92400e, #b45309); }
+  .stock-card-top.t2c { background: linear-gradient(135deg, #1e3a5f, #2563eb); }
+  .stock-card-ticker { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 3px; opacity: 0.7; }
+  .stock-card-name { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .stock-card-price { font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 500; }
+  .stock-card-bottom { padding: 10px 12px; }
+  .mini-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mini-kpi label { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--text3); display: block; letter-spacing: 1px; text-transform: uppercase; }
+  .mini-kpi span { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text); }
+  .mini-kpi.hl span { color: var(--gold2); }
+
+  .full-panel {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .full-panel-head {
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .full-panel-head.tc1 { background: rgba(180,83,9,0.15); border-bottom: 1px solid rgba(180,83,9,0.3); }
+  .full-panel-head.tc2 { background: rgba(37,99,235,0.15); border-bottom: 1px solid rgba(37,99,235,0.3); }
+  .full-panel-sym { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+  .tc1 .full-panel-sym { color: var(--gold2); }
+  .tc2 .full-panel-sym { color: #93c5fd; }
+  .full-panel-nota {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .tc1 .full-panel-nota { background: rgba(240,180,41,0.15); color: var(--gold); }
+  .tc2 .full-panel-nota { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .full-panel-body { padding: 12px; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+  .kpi-cell { background: var(--surface3); border-radius: 6px; padding: 7px 9px; }
+  .kpi-cell label { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--text3); display: block; margin-bottom: 2px; letter-spacing: 1px; text-transform: uppercase; }
+  .kpi-cell span { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; }
+  .kpi-cell.hl span { color: var(--gold2); }
+  .kpi-cell.hlg span { color: var(--green); }
+
+  .guidance {
+    background: var(--surface3);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+  .guidance-lbl { font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 2px; color: var(--text3); text-transform: uppercase; margin-bottom: 4px; }
+
+  .pros-risks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .list-box { background: var(--surface3); border-radius: 6px; padding: 8px 10px; }
+  .list-box-lbl { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; font-family: 'JetBrains Mono', monospace; }
+  .list-box-lbl.pos { color: var(--green); }
+  .list-box-lbl.neg { color: var(--red); }
+  .list-item { font-size: 10px; color: var(--text2); padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); line-height: 1.4; }
+  .list-item:last-child { border-bottom: none; }
+
+  .news-list { margin-bottom: 8px; }
+  .news-item { background: var(--surface3); border-radius: 5px; padding: 7px 10px; font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 5px; display: flex; gap: 8px; }
+  .news-item::before { content: '📰'; font-size: 12px; flex-shrink: 0; }
+
+  .rec-bar {
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+  .rec-bar.tc1 { background: rgba(180,83,9,0.15); color: var(--gold2); border: 1px solid rgba(180,83,9,0.3); }
+  .rec-bar.tc2 { background: rgba(37,99,235,0.15); color: #93c5fd; border: 1px solid rgba(37,99,235,0.3); }
+
+  .compare-table { width: 100%; border-collapse: collapse; }
+  .compare-table th { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border2); color: var(--text3); }
+  .compare-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table td:first-child { color: var(--text2); }
+  .win1 { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: var(--gold); background: rgba(240,180,41,0.1); padding: 2px 8px; border-radius: 20px; display: inline-block; }
+  .win2 { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; color: #93c5fd; background: rgba(59,130,246,0.1); padding: 2px 8px; border-radius: 20px; display: inline-block; }
+
+  .verdict-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border2);
+    border-top: 2px solid var(--gold);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+  .verdict-tag { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 3px; color: var(--gold); margin-bottom: 8px; }
+  .verdict-title { font-size: 17px; font-weight: 800; margin-bottom: 10px; line-height: 1.3; }
+  .verdict-text { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 14px; }
+  .strategy-box {
+    background: rgba(240,180,41,0.07);
+    border: 1px solid rgba(240,180,41,0.2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .strategy-box strong { color: var(--gold); }
+
+  .back-btn {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 12px;
+    color: var(--text2);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 24px;
+    transition: all 0.15s;
+  }
+  .back-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+  .disclaimer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    text-align: center;
+    padding: 0 20px 32px;
+    line-height: 1.6;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .fade-up { animation: fadeUp 0.4s ease forwards; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- TELA 1: SELEÇÃO -->
+<div id="screen-select">
+  <div class="header">
+    <div class="header-tag">📊 Analisador Fundamentalista · IA</div>
+    <h1>Escolha os Ativos</h1>
+    <p>Selecione 2 ações para comparar e clique em Analisar</p>
+  </div>
+
+  <div class="steps">
+    <div class="step active" id="step1">
+      <div class="step-num">1</div>
+      <span>Selecionar</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step2">
+      <div class="step-num">2</div>
+      <span>Analisar</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="step3">
+      <div class="step-num">3</div>
+      <span>Resultado</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <!-- BARRA DE SELECIONADOS -->
+    <div class="selected-bar">
+      <span class="sel-label">SELECIONADOS</span>
+      <div class="sel-chips">
+        <div class="sel-chip slot1 hidden" id="chip1">
+          <span id="chip1-text"></span>
+          <span class="remove" onclick="removeSelected(0)">×</span>
+        </div>
+        <div class="sel-chip empty" id="chip1-empty">ativo 1</div>
+        <div class="sel-chip slot2 hidden" id="chip2">
+          <span id="chip2-text"></span>
+          <span class="remove" onclick="removeSelected(1)">×</span>
+        </div>
+        <div class="sel-chip empty" id="chip2-empty">ativo 2</div>
+      </div>
+      <span class="sel-hint" id="sel-hint">0 / 2</span>
+    </div>
+
+    <!-- BUSCA -->
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" id="searchInput" placeholder="Buscar ativo... ex: PETR4, VALE3" oninput="filterTickers()" />
+    </div>
+
+    <!-- CATEGORIAS -->
+    <div class="section-label">Filtrar por setor</div>
+    <div class="categories">
+      <button class="cat-btn active" onclick="filterCat('todos', this)">Todos</button>
+      <button class="cat-btn" onclick="filterCat('seguros', this)">Seguros</button>
+      <button class="cat-btn" onclick="filterCat('bancos', this)">Bancos</button>
+      <button class="cat-btn" onclick="filterCat('energia', this)">Energia</button>
+      <button class="cat-btn" onclick="filterCat('commodities', this)">Commodities</button>
+      <button class="cat-btn" onclick="filterCat('varejo', this)">Varejo</button>
+      <button class="cat-btn" onclick="filterCat('telecom', this)">Telecom</button>
+    </div>
+
+    <!-- GRID DE ATIVOS -->
+    <div class="section-label">Ativos disponíveis</div>
+    <div class="tickers-grid" id="tickersGrid"></div>
+
+    <!-- BOTÃO ANALISAR -->
+    <button class="analyze-btn" id="analyzeBtn" onclick="startAnalysis()" disabled>
+      <span>🔍</span>
+      <span id="analyzeBtnText">Selecione 2 ativos para continuar</span>
+    </button>
+  </div>
+</div>
+
+<!-- TELA 2: LOADING -->
+<div id="screen-loading" class="hidden">
+  <div class="loading-screen">
+    <div class="loading-orb"></div>
+    <h3 id="loading-title">Analisando ativos...</h3>
+    <p id="loading-subtitle">Isso leva alguns segundos</p>
+    <div class="loading-steps" id="loadingSteps"></div>
+  </div>
+</div>
+
+<!-- TELA 3: RESULTADO -->
+<div id="screen-result" class="hidden">
+  <div class="result-wrap" id="resultContent"></div>
+</div>
+
+<div class="disclaimer">
+  ⚠ Análise gerada por IA com base em dados públicos. Não constitui recomendação de investimento.<br>
+  Consulte um assessor certificado (CFP/AAI) antes de tomar decisões de alocação.
+</div>
+
+<script>
+const TICKERS = [
+  // Seguros
+  { sym:"BBSE3", name:"BB Seguridade", sector:"seguros", cat:"seguros" },
+  { sym:"CXSE3", name:"Caixa Seguridade", sector:"seguros", cat:"seguros" },
+  { sym:"PSSA3", name:"Porto Seguro", sector:"seguros", cat:"seguros" },
+  { sym:"IRBR3", name:"IRB Brasil Re", sector:"seguros", cat:"seguros" },
+  // Bancos
+  { sym:"ITUB4", name:"Itaú Unibanco", sector:"bancos", cat:"bancos" },
+  { sym:"BBDC4", name:"Bradesco", sector:"bancos", cat:"bancos" },
+  { sym:"BBAS3", name:"Banco do Brasil", sector:"bancos", cat:"bancos" },
+  { sym:"SANB11", name:"Santander BR", sector:"bancos", cat:"bancos" },
+  { sym:"BPAC11", name:"BTG Pactual", sector:"bancos", cat:"bancos" },
+  // Energia
+  { sym:"EGIE3", name:"Engie Brasil", sector:"energia", cat:"energia" },
+  { sym:"TAEE11", name:"Taesa", sector:"energia", cat:"energia" },
+  { sym:"CPFE3", name:"CPFL Energia", sector:"energia", cat:"energia" },
+  { sym:"NEOE3", name:"Neoenergia", sector:"energia", cat:"energia" },
+  { sym:"TRPL4", name:"ISA CTEEP", sector:"energia", cat:"energia" },
+  // Commodities
+  { sym:"VALE3", name:"Vale", sector:"commodities", cat:"commodities" },
+  { sym:"PETR4", name:"Petrobras", sector:"commodities", cat:"commodities" },
+  { sym:"SUZB3", name:"Suzano", sector:"commodities", cat:"commodities" },
+  { sym:"GGBR4", name:"Gerdau", sector:"commodities", cat:"commodities" },
+  // Varejo
+  { sym:"MGLU3", name:"Magazine Luiza", sector:"varejo", cat:"varejo" },
+  { sym:"VIIA3", name:"Grupo Soma", sector:"varejo", cat:"varejo" },
+  { sym:"RENT3", name:"Localiza", sector:"varejo", cat:"varejo" },
+  { sym:"LREN3", name:"Lojas Renner", sector:"varejo", cat:"varejo" },
+  // Telecom
+  { sym:"VIVT3", name:"Telefônica Vivo", sector:"telecom", cat:"telecom" },
+  { sym:"TIMS3", name:"TIM", sector:"telecom", cat:"telecom" },
+];
+
+let selected = [];
+let currentCat = "todos";
+let searchQuery = "";
+
+function renderGrid() {
+  const grid = document.getElementById('tickersGrid');
+  const filtered = TICKERS.filter(t => {
+    const matchCat = currentCat === "todos" || t.cat === currentCat;
+    const matchSearch = !searchQuery || t.sym.includes(searchQuery.toUpperCase()) || t.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchCat && matchSearch;
+  });
+
+  grid.innerHTML = filtered.map(t => {
+    const idx = selected.findIndex(s => s === t.sym);
+    const isSel1 = selected[0] === t.sym;
+    const isSel2 = selected[1] === t.sym;
+    const isDisabled = selected.length === 2 && idx === -1;
+    let cls = '';
+    if (isSel1) cls = 'selected';
+    else if (isSel2) cls = 'selected-2';
+    else if (isDisabled) cls = 'disabled';
+
+    const badge = isSel1 ? '<div class="tick-badge">1</div>' : isSel2 ? '<div class="tick-badge">2</div>' : '';
+
+    return `<div class="ticker-card ${cls}" onclick="toggleTicker('${t.sym}')">
+      ${badge}
+      <div class="ticker-sym">${t.sym}</div>
+      <div class="ticker-name">${t.name}</div>
+      <div class="ticker-sector">${t.sector}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleTicker(sym) {
+  const idx = selected.indexOf(sym);
+  if (idx !== -1) {
+    selected.splice(idx, 1);
+  } else {
+    if (selected.length >= 2) return;
+    selected.push(sym);
+  }
+  updateUI();
+}
+
+function removeSelected(idx) {
+  selected.splice(idx, 1);
+  updateUI();
+}
+
+function updateUI() {
+  // chips
+  const names = { ...Object.fromEntries(TICKERS.map(t=>[t.sym, t.name])) };
+  ['chip1','chip2'].forEach((id, i) => {
+    const chip = document.getElementById(id);
+    const empty = document.getElementById(id+'-empty');
+    const text = document.getElementById(id+'-text');
+    if (selected[i]) {
+      chip.classList.remove('hidden');
+      empty.classList.add('hidden');
+      text.textContent = selected[i];
+    } else {
+      chip.classList.add('hidden');
+      empty.classList.remove('hidden');
+    }
+  });
+  document.getElementById('sel-hint').textContent = `${selected.length} / 2`;
+
+  // botão
+  const btn = document.getElementById('analyzeBtn');
+  const btnText = document.getElementById('analyzeBtnText');
+  if (selected.length === 2) {
+    btn.disabled = false;
+    btnText.textContent = `Analisar ${selected[0]} vs ${selected[1]}`;
+  } else {
+    btn.disabled = true;
+    btnText.textContent = selected.length === 0 ? 'Selecione 2 ativos para continuar' : 'Selecione mais 1 ativo';
+  }
+
+  renderGrid();
+}
+
+function filterCat(cat, el) {
+  currentCat = cat;
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderGrid();
+}
+
+function filterTickers() {
+  searchQuery = document.getElementById('searchInput').value;
+  renderGrid();
+}
+
+// ANÁLISE
+async function startAnalysis() {
+  if (selected.length !== 2) return;
+
+  const t1 = selected[0], t2 = selected[1];
+  const name1 = TICKERS.find(t=>t.sym===t1)?.name || t1;
+  const name2 = TICKERS.find(t=>t.sym===t2)?.name || t2;
+
+  document.getElementById('screen-select').classList.add('hidden');
+  document.getElementById('screen-loading').classList.remove('hidden');
+
+  const steps = [
+    "Avaliando cenário macroeconômico",
+    `Analisando fundamentos de ${t1}`,
+    `Analisando fundamentos de ${t2}`,
+    "Comparando indicadores e riscos",
+    "Redigindo veredicto e estratégia"
+  ];
+
+  const stepsEl = document.getElementById('loadingSteps');
+  document.getElementById('loading-title').textContent = `Analisando ${t1} vs ${t2}`;
+  stepsEl.innerHTML = steps.map((s,i) => `<div class="loading-step" id="lstep${i}">
+    <span>${i===0?'⟳':'○'}</span> ${s}
+  </div>`).join('');
+
+  let si = 0;
+  const interval = setInterval(() => {
+    if (si > 0) document.getElementById(`lstep${si-1}`).className = 'loading-step done';
+    if (si < steps.length) {
+      const el = document.getElementById(`lstep${si}`);
+      if (el) { el.className = 'loading-step active'; el.querySelector('span').textContent = '⟳'; }
+      si++;
+    }
+  }, 800);
+
+  const today = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"long",year:"numeric"});
+  const prompt = `Você é um analista fundamentalista sênior especializado em ações brasileiras.
+
+Hoje é ${today}. Faça uma análise fundamentalista COMPLETA comparando ${t1} (${name1}) e ${t2} (${name2}).
+
+Responda APENAS em JSON válido, sem markdown, sem texto fora do JSON:
+
+{
+  "atualizado_em": "data atual",
+  "ticker1": "${t1}",
+  "ticker2": "${t2}",
+  "name1": "${name1}",
+  "name2": "${name2}",
+  "resumo_executivo": "2-3 frases resumindo o cenário atual de ambas",
+  "macro": { "selic": "valor estimado", "cenario": "2-3 frases sobre o cenário macro relevante" },
+  "ativo1": {
+    "cotacao_aprox": "R$ XX",
+    "lucro_ultimos_12m": "R$ X bi ou mi",
+    "crescimento_lucro": "+X%",
+    "dividend_yield": "X%",
+    "payout": "X%",
+    "pl": "X×",
+    "roe": "X%",
+    "pvp": "X×",
+    "pl_vs_historico": "X% abaixo/acima ou neutro",
+    "guidance_perspectiva": "perspectiva para os próximos 12 meses",
+    "pontos_positivos": ["p1","p2","p3","p4"],
+    "pontos_negativos": ["p1","p2","p3"],
+    "noticias_recentes": ["n1","n2","n3"],
+    "nota": 7.5,
+    "recomendacao": "Comprar / Manter / Aguardar — justificativa curta"
+  },
+  "ativo2": {
+    "cotacao_aprox": "R$ XX",
+    "lucro_ultimos_12m": "R$ X bi ou mi",
+    "crescimento_lucro": "+X%",
+    "dividend_yield": "X%",
+    "payout": "X%",
+    "pl": "X×",
+    "roe": "X%",
+    "pvp": "X×",
+    "pl_vs_historico": "X% abaixo/acima ou neutro",
+    "guidance_perspectiva": "perspectiva para os próximos 12 meses",
+    "pontos_positivos": ["p1","p2","p3","p4"],
+    "pontos_negativos": ["p1","p2","p3"],
+    "noticias_recentes": ["n1","n2","n3"],
+    "nota": 7.5,
+    "recomendacao": "Comprar / Manter / Aguardar — justificativa curta"
+  },
+  "comparativo": {
+    "melhor_dividendo": "${t1} ou ${t2}",
+    "melhor_crescimento": "${t1} ou ${t2}",
+    "melhor_valuation": "${t1} ou ${t2}",
+    "melhor_qualidade": "${t1} ou ${t2}",
+    "melhor_risco_retorno": "${t1} ou ${t2}"
+  },
+  "veredicto": {
+    "titulo": "título impactante",
+    "texto": "análise final em 3-4 frases",
+    "estrategia_aporte": "sugestão de % de aporte mensal entre os dois e justificativa detalhada"
+  }
+}`;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content.map(b => b.text || "").join("");
+    const clean = text.replace(/```json|```/g,"").trim();
+    const analysis = JSON.parse(clean);
+
+    clearInterval(interval);
+    steps.forEach((_,i) => {
+      const el = document.getElementById(`lstep${i}`);
+      if (el) { el.className = 'loading-step done'; el.querySelector('span').textContent = '✓'; }
+    });
+
+    setTimeout(() => renderResult(analysis, t1, t2), 400);
+
+  } catch(e) {
+    clearInterval(interval);
+    document.getElementById('screen-loading').classList.add('hidden');
+    document.getElementById('screen-select').classList.remove('hidden');
+    alert('Erro ao gerar análise: ' + e.message);
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function winBadge(val, t1, t2) {
+  return val === t1
+    ? `<span class="win1">${t1}</span>`
+    : `<span class="win2">${t2}</span>`;
+}
+
+function kpiCell(label, val, hl='') {
+  return `<div class="kpi-cell ${hl}"><label>${label}</label><span>${val||'—'}</span></div>`;
+}
+
+function panel(sym, nameStr, d, tcls) {
+  return `
+  <div class="full-panel fade-up">
+    <div class="full-panel-head ${tcls}">
+      <div>
+        <div class="full-panel-sym">${sym}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:1px">${nameStr}</div>
+      </div>
+      <div class="full-panel-nota">${d.nota}/10</div>
+    </div>
+    <div class="full-panel-body">
+      <div class="kpi-row">
+        ${kpiCell("Cotação aprox.", d.cotacao_aprox)}
+        ${kpiCell("Lucro 12m", d.lucro_ultimos_12m)}
+        ${kpiCell("Cresc. Lucro", d.crescimento_lucro)}
+        ${kpiCell("Div. Yield", d.dividend_yield, "hl")}
+        ${kpiCell("Payout", d.payout)}
+        ${kpiCell("P/L", d.pl)}
+        ${kpiCell("ROE", d.roe, "hlg")}
+        ${kpiCell("P/VP", d.pvp)}
+        ${kpiCell("P/L vs Hist.", d.pl_vs_historico)}
+      </div>
+      <div class="guidance">
+        <div class="guidance-lbl">📈 Perspectiva 12 meses</div>
+        ${d.guidance_perspectiva}
+      </div>
+      <div class="pros-risks">
+        <div class="list-box">
+          <div class="list-box-lbl pos">✓ Positivos</div>
+          ${(d.pontos_positivos||[]).map(p=>`<div class="list-item">+ ${p}</div>`).join('')}
+        </div>
+        <div class="list-box">
+          <div class="list-box-lbl neg">✗ Riscos</div>
+          ${(d.pontos_negativos||[]).map(p=>`<div class="list-item">− ${p}</div>`).join('')}
+        </div>
+      </div>
+      <div class="news-list">
+        ${(d.noticias_recentes||[]).map(n=>`<div class="news-item">${n}</div>`).join('')}
+      </div>
+      <div class="rec-bar ${tcls}">💡 ${d.recomendacao}</div>
+    </div>
+  </div>`;
+}
+
+function renderResult(a, t1, t2) {
+  document.getElementById('screen-loading').classList.add('hidden');
+  document.getElementById('screen-result').classList.remove('hidden');
+  const cmp = a.comparativo || {};
+  const v = a.veredicto || {};
+
+  document.getElementById('resultContent').innerHTML = `
+    <div style="padding-top:20px" class="fade-up">
+      <div class="result-header">
+        <div class="result-tickers">
+          <span class="t1">${t1}</span>
+          <span class="vs">VS</span>
+          <span class="t2">${t2}</span>
+        </div>
+        <div class="result-date">📅 ${a.atualizado_em}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="color:var(--gold)">🏦 Cenário Macro · Selic: ${a.macro?.selic}</div>
+        <div class="card-body">
+          <div class="macro-grid">
+            <div class="selic-box"><label>SELIC</label><span>${a.macro?.selic}</span></div>
+            <div class="macro-text">${a.macro?.cenario}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="color:var(--text2)">📋 Resumo Executivo</div>
+        <div class="card-body"><div class="exec-text">${a.resumo_executivo}</div></div>
+      </div>
+
+      ${panel(t1, a.name1, a.ativo1, "tc1")}
+      ${panel(t2, a.name2, a.ativo2, "tc2")}
+
+      <div class="card fade-up">
+        <div class="card-head" style="color:var(--text2)">⚡ Quem Vence em Cada Critério</div>
+        <div class="card-body" style="padding:0">
+          <table class="compare-table">
+            <thead><tr><th>Critério</th><th>Vencedor</th></tr></thead>
+            <tbody>
+              <tr><td>💰 Melhor Dividendo</td><td>${winBadge(cmp.melhor_dividendo,t1,t2)}</td></tr>
+              <tr><td>📈 Melhor Crescimento</td><td>${winBadge(cmp.melhor_crescimento,t1,t2)}</td></tr>
+              <tr><td>🏷 Melhor Valuation</td><td>${winBadge(cmp.melhor_valuation,t1,t2)}</td></tr>
+              <tr><td>🏆 Melhor Qualidade</td><td>${winBadge(cmp.melhor_qualidade,t1,t2)}</td></tr>
+              <tr><td>⚖ Melhor Risco/Retorno</td><td>${winBadge(cmp.melhor_risco_retorno,t1,t2)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="verdict-card fade-up">
+        <div class="verdict-tag">⚖ VEREDICTO FINAL</div>
+        <div class="verdict-title">${v.titulo}</div>
+        <div class="verdict-text">${v.texto}</div>
+        <div class="strategy-box"><strong>📌 Estratégia de aporte mensal:</strong> ${v.estrategia_aporte}</div>
+      </div>
+
+      <button class="back-btn" onclick="goBack()">← Nova Comparação</button>
+    </div>
+  `;
+}
+
+function goBack() {
+  selected = [];
+  document.getElementById('screen-result').classList.add('hidden');
+  document.getElementById('screen-select').classList.remove('hidden');
+  updateUI();
+}
+
+// INIT
+renderGrid();
+updateUI();
+</script>
+</body>
+</html>
